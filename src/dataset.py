@@ -1,5 +1,3 @@
-from collections import Counter
-
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import transforms
 
@@ -21,17 +19,3 @@ def garbage_dataset(root):
 
 if __name__ == '__main__':
     dataset = garbage_dataset('dataset')
-    counter = Counter(dataset.targets)
-    train_indices = []
-    valid_indices = []
-    covered_num = 0
-    for i in range(len(counter.keys())):
-        class_total = counter.get(i)
-        indices = list(range(covered_num, covered_num + class_total))
-        split = class_total // 4
-        # random.shuffle(indices)
-        train_indices += indices[split:]
-        valid_indices += indices[:split]
-        covered_num += class_total
-    print(train_indices)
-    print(valid_indices)

@@ -1,3 +1,6 @@
+import json
+from typing import Any, Tuple
+
 import torch
 import yaml
 
@@ -21,7 +24,8 @@ class Accumulator:
 class DictObj():
     """把字典转换成对象，用点操作符访问"""
 
-    def __init__(self, in_dict):
+    def __init__(self, in_dict: dict) -> None:
+        self._json = json.dumps(in_dict)
         for k, v in in_dict.items():
             if isinstance(v, (list, tuple)):
                 setattr(self, k, [DictObj(x) if isinstance(
@@ -29,12 +33,18 @@ class DictObj():
             else:
                 setattr(self, k, DictObj(v) if isinstance(v, dict) else v)
 
+    
+    def json(self) -> str:
+        return self._json
 
-def get_options(filepath='options.yml'):
+
+def read_yaml(filepath: str, ret_dict: bool=False) -> Any:
     """读取yaml文件，获取设置"""
     with open(filepath, 'r') as f:
-        yobj = yaml.safe_load(f)
-    return DictObj(yobj)
+        config = yaml.safe_load(f)
+    if not ret_dict:
+        config = DictObj(config)
+    return config
 
 
 def save_model(model, acc, filename="model.pth"):
@@ -67,10 +77,3 @@ def stat_cuda(msg='GPU memory usage'):
 
 if __name__ == '__main__':
     from model import VGG
-    net = VGG(3)
-    save_model(net)
-
-    new_net = VGG(3)
-    load_model(new_net)
-    x = torch.randn(1, 3, 224, 224)
-    print(net(x) == new_net(x))

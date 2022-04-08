@@ -1,0 +1,5 @@
+project: GarbageClassification
+group: VGG13
+job_type: train VGG
+model_path: results/models/
+model_name: VGG13_reduced
