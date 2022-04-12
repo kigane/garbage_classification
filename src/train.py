@@ -1,25 +1,15 @@
-import random
-from collections import Counter
-from typing import Any, Tuple
-
 import torch
 import torch.nn as nn
 import wandb
 from torch import Tensor
-from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import garbage_dataset
 from model import VGG
-from utils import Accumulator, read_yaml, save_model
+from utils import Accumulator, DictObj, read_yaml, save_model
 
 _PROJECT = "GarbageClassification"
-
-def init_weights(m: nn.Module) -> None:
-    """网络权重初始化。作为apply的参数使用。"""
-    if type(m) == nn.Linear or type(m) == nn.Conv2d:
-        nn.init.xavier_uniform_(m.weight)
-
 
 def correct_num(x: Tensor, y: Tensor) -> int:
     """统计一个批次中预测正确的样本数
@@ -32,40 +22,8 @@ def correct_num(x: Tensor, y: Tensor) -> int:
     return (x_label == y).float().sum()
 
 
-def split_dataset(dataset: Dataset, k: int) -> Tuple[SubsetRandomSampler, SubsetRandomSampler]:
-    """划分数据集。会保持训练集和验证集的类别数据量的分布。
-
-    Args:
-        dataset (Dataset): 原始数据集
-        k (int): 测试集占原始数据集的1/k
-
-    Returns:
-        Tuple(Sampler, Sampler): 训练集,测试集的Sampler
-    """
-    counter = Counter(dataset.targets)
-    train_indices = []
-    valid_indices = []
-    covered_num = 0
-    for i in range(len(counter.keys())):
-        class_total = counter.get(i)
-        indices = list(range(covered_num, covered_num + class_total))
-        split = class_total // k
-        # random.shuffle(indices)
-        train_indices += indices[split:]
-        valid_indices += indices[:split]
-        covered_num += class_total
-    
-    random.shuffle(train_indices)
-    random.shuffle(valid_indices)
-
-    train_sampler = SubsetRandomSampler(train_indices)
-    valid_sampler = SubsetRandomSampler(valid_indices)
-    
-    return train_sampler, valid_sampler
-
-
 @torch.no_grad()
-def evaluate_accuracy(net: nn.Module, valid_iter: DataLoader, device: Any) -> float:
+def evaluate_accuracy(net: nn.Module, valid_iter: DataLoader, device) -> float:
     """计算模型在验证集上的准确率
 
     Args:
@@ -84,53 +42,61 @@ def evaluate_accuracy(net: nn.Module, valid_iter: DataLoader, device: Any) -> fl
     return metric[0] / metric[1]
 
 
-def log_dataset(size: int) -> None:
+def log_dataset(proj_name) -> None:
     """在wandb上记录数据集"""
-    with wandb.init(project=_PROJECT, job_type="log-data") as run:
+    with wandb.init(project=proj_name, job_type="log-data") as run:
         raw_data = wandb.Artifact(
-            "garbage-raw", type="dataset",
+            "garbage-raw", 
+            type="dataset",
             description="Raw garbage dataset",
             metadata={
                 "classes": "cardboard,glass,metal,paper,plastic,trash",
-                "sizes": size
+                "train": 2024,
+                "test": 503,
             })
         raw_data.add_dir('dataset')
         run.log_artifact(raw_data)
 
 
-def log_model(name: str) -> None:
+def log_model(info: DictObj) -> None:
     """在wandb上记录模型"""
     model_artifact = wandb.Artifact(
-        name='name',
-        type='trained_model',
-        description='VGG13 with linear layer reduced',
-        metadata={'use_BN': True, 'activation': 'relu'}
+        name=info.model_name, # 名称
+        type=info.model_type, # 类别
+        description=info.model_desc,
+        metadata=info.model_metadata.to_dict()
     )
-    model_artifact.add_file('results/models/' + name + 'pth')
+    model_artifact.add_file(build_model_path(info.model_name))
     wandb.log_artifact(model_artifact)
+
+
+def build_model_path(name: str) -> str:
+    return 'results/models/' + name + 'pth'
 
 
 def train(config=None) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    proj_info = read_yaml('project.yml')
 
-    dataset = garbage_dataset('dataset')
-    log_dataset(len(dataset))
+    training_set = garbage_dataset('dataset/train')
+    valid_set = garbage_dataset('dataset/valid')
+    log_dataset(proj_info.project)
 
     if config is None:
         wandb.init()
     else:
-        wandb.init(project=_PROJECT, group='VGG',
-               job_type='train VGG', config=config)
+        wandb.init(project=proj_info.project,
+                   group=proj_info.group,
+                   job_type=proj_info.job_type,
+                   config=config)
     opt = wandb.config
 
-    model = VGG(3, 'VGG13').to(device)
-    model.apply(init_weights)
+    model = VGG(3, proj_info.model_type).to(device)
 
-    train_sampler, valid_sampler = split_dataset(dataset, 5)
     train_iter = DataLoader(
-        dataset, batch_size=opt.batch_size, sampler=train_sampler, pin_memory=True)
+        training_set, batch_size=opt.batch_size, shuffle=True, pin_memory=True)
     valid_iter = DataLoader(
-        dataset, batch_size=opt.batch_size, sampler=valid_sampler, pin_memory=True)
+        valid_set, batch_size=opt.batch_size, pin_memory=True)
 
     optimizer = torch.optim.SGD(
         model.parameters(), lr=opt.lr, weight_decay=opt.weight_decay)
@@ -165,16 +131,19 @@ def train(config=None) -> None:
         if best_acc < valid_acc:
             best_acc = valid_acc
             wandb.summary['best_acc'] = best_acc
-            save_model(model, best_acc, 'results/models/VGG13_reduced.pth')
+            save_model(model, best_acc, build_model_path(proj_info.model_name))
 
     # after training
     if config is not None:
-        log_model('VGG13_reduced_.pth')
+        log_model(proj_info)
 
 
 if __name__ == '__main__':
-    # config = read_yaml('options.yml', True)
-    # train(config)
-    sweep_config = read_yaml('sweep.yml', True)
-    sweep_id = wandb.sweep(sweep_config, project=_PROJECT)
-    wandb.agent(sweep_id, function=train, count=8)
+    # single run
+    config = read_yaml('options.yml', True)
+    train(config)
+
+    # sweep
+    # sweep_config = read_yaml('sweep.yml', True)
+    # sweep_id = wandb.sweep(sweep_config, project=_PROJECT)
+    # wandb.agent(sweep_id, function=train, count=8)

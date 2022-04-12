@@ -1,7 +1,10 @@
+from turtle import forward
+
 import torch
 import torch.nn as nn
 
 VGGs = {
+    'VGG11': ((1, 64), (1, 128), (2, 256), (2, 512), (2, 512)),
     'VGG13': ((2, 64), (2, 128), (2, 256), (2, 512), (2, 512)),
     'VGG16': ((2, 64), (2, 128), (3, 256), (3, 512), (3, 512)),
 }
@@ -59,9 +62,9 @@ class VGG(nn.Module):
         return nn.Sequential(
             *conv_blks, nn.Flatten(),
             # 全连接层部分
-            nn.Linear(out_channels * 7 * 7, 496), nn.ReLU(), nn.Dropout(0.5),
-            nn.Linear(496, 496), nn.ReLU(), nn.Dropout(0.5),
-            nn.Linear(496, 6))
+            nn.Linear(out_channels * 7 * 7, 512), nn.ReLU(), nn.Dropout(0.5),
+            nn.Linear(512, 512), nn.ReLU(), nn.Dropout(0.5),
+            nn.Linear(512, 6))
 
 
 if __name__ == '__main__':

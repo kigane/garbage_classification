@@ -1,5 +1,5 @@
 import json
-from typing import Any, Tuple
+from typing import Any
 
 import torch
 import yaml
@@ -33,9 +33,13 @@ class DictObj():
             else:
                 setattr(self, k, DictObj(v) if isinstance(v, dict) else v)
 
-    
+
     def json(self) -> str:
         return self._json
+
+
+    def to_dict(self) -> dict:
+        return json.loads(self._json)
 
 
 def read_yaml(filepath: str, ret_dict: bool=False) -> Any:
@@ -75,5 +79,24 @@ def stat_cuda(msg='GPU memory usage'):
     ))
 
 
+def get_stat(train_data):
+    '''Compute mean and variance for training data'''
+    print('Compute mean and variance for training data.')
+    print(len(train_data))
+    train_loader = torch.utils.data.DataLoader(
+        train_data, batch_size=1, shuffle=False, pin_memory=True)
+    mean = torch.zeros(3)
+    std = torch.zeros(3)
+    for X, _ in train_loader:
+        for d in range(3):
+            mean[d] += X[:, d, :, :].mean()
+            std[d] += X[:, d, :, :].std()
+    mean.div_(len(train_data))
+    std.div_(len(train_data))
+    return list(mean.numpy()), list(std.numpy())
+
+
 if __name__ == '__main__':
     from model import VGG
+    d = read_yaml('project.yml')
+    print(d.model_metadata.to_dict())

@@ -5,10 +5,10 @@ metric:
   name: valid/acc
 parameters: 
   n_epochs: 
-    value: 8
+    value: 20
   batch_size:
-    values: [8, 16]
+    values: [16]
   lr:
-    values: [0.01, 0.001, 0.0001]
+    values: [0.001, 0.0001]
   weight_decay:
-    values: [0.01, 0.001, 0.0001]
+    values: [0.001, 0.0001]
