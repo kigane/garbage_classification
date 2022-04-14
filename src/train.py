@@ -108,14 +108,17 @@ def train(config=None) -> None:
         model.train()
         metric.reset()
         for batch_idx, (X, y) in enumerate(tqdm(train_iter, desc=f'epoch {epoch+1:>3}')):
+            # forward
             X, y = X.to(device), y.to(device)
             y_hat = model(X)
-            loss = criterion(y_hat, y)
 
+            # optimize_params
+            loss = criterion(y_hat, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
+            # record
             with torch.no_grad():
                 metric.add(loss.float() * X.shape[0],
                            correct_num(y_hat, y),

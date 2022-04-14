@@ -1,5 +1,3 @@
-from turtle import forward
-
 import torch
 import torch.nn as nn
 
@@ -69,7 +67,9 @@ class VGG(nn.Module):
 
 if __name__ == '__main__':
     net = VGG(1)
-    X = torch.randn(size=(1, 1, 224, 224))
-    for blk in net.vgg:
-        X = blk(X)
-        print(blk.__class__.__name__, 'output shape:\t', X.shape)
+    # X = torch.randn(size=(1, 1, 224, 224))
+    # for blk in net.vgg:
+    #     X = blk(X)
+    #     print(blk.__class__.__name__, 'output shape:\t', X.shape)
+    from utils import calc_net_params
+    calc_net_params('VGG16', net)

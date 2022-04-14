@@ -96,6 +96,14 @@ def get_stat(train_data):
     return list(mean.numpy()), list(std.numpy())
 
 
+def calc_net_params(name, net):
+    num_params = 0
+    for param in net.parameters():
+        num_params += param.numel()
+    print('[Network %s] Total number of parameters : %.3f M' %
+        (name, num_params / 1e6))
+
+
 if __name__ == '__main__':
     from model import VGG
     d = read_yaml('project.yml')
