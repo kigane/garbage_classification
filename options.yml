@@ -1,4 +1,15 @@
-n_epochs: 80
+n_epochs: 1
 batch_size: 16
 lr: 1.0e-3
 weight_decay: 0.001
+
+project: GarbageClassification
+group: VGG
+job_type: default
+model_type: VGG16
+model_name: VGG16
+model_desc: VGG16 reduced
+model_metadata:
+    use_BN: true
+    activation: relu
+    dropout: 0.5

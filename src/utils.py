@@ -7,7 +7,6 @@ import yaml
 
 class Accumulator:
     """用于累积每个小批量的指标"""
-
     def __init__(self, n):
         self.data = [0.0] * n
 
@@ -23,7 +22,6 @@ class Accumulator:
 
 class DictObj():
     """把字典转换成对象，用点操作符访问"""
-
     def __init__(self, in_dict: dict) -> None:
         self._json = json.dumps(in_dict)
         for k, v in in_dict.items():
@@ -33,10 +31,8 @@ class DictObj():
             else:
                 setattr(self, k, DictObj(v) if isinstance(v, dict) else v)
 
-
     def json(self) -> str:
         return self._json
-
 
     def to_dict(self) -> dict:
         return json.loads(self._json)
@@ -105,6 +101,5 @@ def calc_net_params(name, net):
 
 
 if __name__ == '__main__':
-    from model import VGG
     d = read_yaml('project.yml')
     print(d.model_metadata.to_dict())

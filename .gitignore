@@ -2,6 +2,7 @@ results/
 wandb/
 artifacts/
 src/test_case.py
+dataset/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,6 +1,5 @@
 from collections import Counter
 
-import matplotlib.pyplot as plt
 from torch.utils.data.dataset import Subset
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import transforms
@@ -64,11 +63,3 @@ if __name__ == '__main__':
     # print(len(valid))
     # print(get_stat(train))
     # print(get_stat(valid))
-    img,  _ = train[16]
-    c = transforms.ColorJitter(brightness=0.3, saturation=0.3)
-    # img = c(img)
-    fig, axes = plt.subplots(1, 2)
-    axes = axes.reshape(-1)
-    axes[0].imshow(img.permute(1, 2, 0))
-    axes[1].imshow(c(img).permute(1, 2, 0))
-    plt.show()

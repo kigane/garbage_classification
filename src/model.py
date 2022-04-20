@@ -1,5 +1,9 @@
 import torch
 import torch.nn as nn
+from torchvision.models import resnet101
+from tqdm import tqdm
+
+from utils import Accumulator
 
 VGGs = {
     'VGG11': ((1, 64), (1, 128), (2, 256), (2, 512), (2, 512)),
@@ -7,6 +11,7 @@ VGGs = {
     'VGG16': ((2, 64), (2, 128), (3, 256), (3, 512), (3, 512)),
 }
 
+#----------------------------------------------------------------------------
 
 class VGG(nn.Module):
     
@@ -64,12 +69,101 @@ class VGG(nn.Module):
             nn.Linear(512, 512), nn.ReLU(), nn.Dropout(0.5),
             nn.Linear(512, 6))
 
+#----------------------------------------------------------------------------
+
+class GarbageModel():
+    def __init__(self, opt, device):
+        self.device = device
+        self.opt = opt
+
+        self.net = VGG(3, opt.model_type)
+        self.net.to(self.device)
+        self.net.train()
+
+        self.optimizer = torch.optim.Adam(
+            self.net.parameters(), lr=opt.lr, weight_decay=opt.weight_decay)
+        self.criterion = nn.CrossEntropyLoss()
+        
+        # loss = metrics[0]/metrics[2] acc = metrics[1]/metrics[2]
+        self.metrics = Accumulator(3)
+
+    def set_input(self, input):
+        self.X = input[0].to(self.device)
+        self.y = input[1].to(self.device)
+
+    def forward(self):
+        self.y_hat = self.net(self.X)
+
+    def backward(self):
+        self.loss = self.criterion(self.y_hat, self.y)
+        self.loss.backward()
+
+    def optimize_parameters(self):
+        """Calculate losses, gradients, and update network weights; called in every training iteration"""
+        # forward
+        self.forward()
+        # backward
+        self.optimizer.zero_grad()
+        self.backward()
+        self.optimizer.step()
+    
+    def accumulate_metrics(self):
+        with torch.no_grad():
+            self.metrics.add(self.loss.item() * self.X.shape[0],
+                            correct_num(self.y_hat, self.y),
+                            self.X.shape[0])
+    
+    def reset_metrics(self):
+        self.metrics.reset()
+        self.net.train()
+    
+    def calc_acc(self):
+        return self.metrics[1] / self.metrics[2]
+
+    def calc_loss(self):
+        return self.metrics[0] / self.metrics[2]
+
+#----------------------------------------------------------------------------
+
+def correct_num(x, y):
+    """统计一个批次中预测正确的样本数
+
+    Args:
+        x (tensor): size=(batch, class_num) 预测结果
+        y (tensor): size=(batch, 1) 真值
+    """
+    x_label = torch.argmax(x, dim=1)
+    return (x_label == y).float().sum()
+
+
+@torch.no_grad()
+def evaluate_accuracy(net, valid_iter, device):
+    """计算模型在验证集上的准确率
+
+        Args:
+            net (nn.Module): 神经网络模型
+            valid_iter (Dataloader): 验证集
+
+        Returns:
+            float: 模型预测准确率
+        """
+    net.eval()
+    metric = Accumulator(2)
+    for X, y in tqdm(valid_iter):
+        X, y = X.to(device), y.to(device)
+        y_hat = net(X)
+        metric.add(correct_num(y_hat, y), X.shape[0])
+    return metric[0] / metric[1]
+
 
 if __name__ == '__main__':
-    net = VGG(1)
+    net = resnet101(pretrained=True)
+    net.fc = nn.Linear(2048, 6)
     # X = torch.randn(size=(1, 1, 224, 224))
     # for blk in net.vgg:
     #     X = blk(X)
     #     print(blk.__class__.__name__, 'output shape:\t', X.shape)
-    from utils import calc_net_params
-    calc_net_params('VGG16', net)
+    for m in net.named_modules():
+        print(m)
+    # from utils import calc_net_params
+    # calc_net_params('VGG16', net)
