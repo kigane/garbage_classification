@@ -1,9 +1,12 @@
+import os
 from collections import Counter
 
+from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import transforms
 
+#----------------------------------------------------------------------------
 
 def preprocess_transform(resolution=224):
     return transforms.Compose([
@@ -54,6 +57,17 @@ def split_dataset(dataset, k):
         covered_num += class_total
     return Subset(dataset, train_indices), Subset(dataset, valid_indices)
 
+
+def get_dataloader(opt):
+    training_set = garbage_dataset(os.path.join(opt.dataroot, 'train'))
+    valid_set = garbage_dataset(os.path.join(opt.dataroot, 'valid'))
+    train_iter = DataLoader(
+        training_set, batch_size=opt.batch_size, shuffle=True, pin_memory=True)
+    valid_iter = DataLoader(
+        valid_set, batch_size=opt.batch_size, pin_memory=True)
+    return train_iter, valid_iter
+
+#----------------------------------------------------------------------------
 
 if __name__ == '__main__':
     from utils import get_stat

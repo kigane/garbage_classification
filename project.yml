@@ -1,0 +1,28 @@
+project: GarbageClassification
+
+# run info, sweep时会忽略
+group: Resnet
+job_type: train
+
+# inputs & outputs
+dataroot: ./dataset/raw/
+# checkpoint: ./checkpoint/
+model_path: ./results/models/
+
+# dataset log info
+dataset_name: garbage-raw # artifacts显示的名称
+dataset_type: Dataset     # artifacts分组名称
+dataset_desc: Raw garbage dataset # Notes，数据集的描述
+dataset_metadata: # artifacts Metadata栏显示的信息
+    num_classes: 6
+    train: 2024
+    test: 503
+
+# model log info
+model_name: resnet101
+model_type: Resnet
+model_desc: resnet101 + lr_cosine_annealing
+model_metadata:
+    use_BN: true
+    activation: relu
+    dropout: 0.5

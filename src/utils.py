@@ -1,4 +1,6 @@
 import json
+from argparse import Namespace
+from pprint import pprint
 from typing import Any
 
 import torch
@@ -38,12 +40,10 @@ class DictObj():
         return json.loads(self._json)
 
 
-def read_yaml(filepath: str, ret_dict: bool=False) -> Any:
+def read_yaml(filepath: str) -> Any:
     """读取yaml文件，获取设置"""
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='UTF-8') as f:
         config = yaml.safe_load(f)
-    if not ret_dict:
-        config = DictObj(config)
     return config
 
 
@@ -51,17 +51,19 @@ def save_model(model, acc, filename="model.pth"):
     """保存模型"""
     print(f"=> Saving model with acc {acc}")
     torch.save(model.state_dict(), filename)
+    print("=> Success!")
 
 
 def load_model(model, filename="model.pth"):
     """加载模型"""
     print("=> Loading model")
     model.load_state_dict(torch.load(filename))
+    print("=> Success!")
 
 
 def stat_cuda(msg='GPU memory usage'):
     """打印GPU内存使用情况。
-       Pytorch使用缓存内存分配器来加速内存分配。这允许在没有设备同步的情况下快速内存释放。使用memory_allocated()和max_memory_allocated()来监视由张量占据的内存，并使用memory_reserved()max_memory_reserved()来监视缓存分配器管理的存储器总量。
+       Pytorch使用缓存内存分配器来加速内存分配。这允许在没有设备同步的情况下的快速内存释放。使用memory_allocated()和max_memory_allocated()来监视由张量占据的内存，并使用memory_reserved()max_memory_reserved()来监视缓存分配器管理的存储器总量。
 
     Args:
         msg (str, optional): 额外信息. Defaults to 'GPU memory usage'.
@@ -101,5 +103,11 @@ def calc_net_params(name, net):
 
 
 if __name__ == '__main__':
-    d = read_yaml('project.yml')
-    print(d.model_metadata.to_dict())
+    # d = read_yaml('options.yml', True)
+    # pprint(d)
+    # n = Namespace(**d)
+    # pprint(n.__dict__)
+    # print(d.model_metadata.to_dict())
+    import timm 
+    pprint(timm.list_models('swin*'))
+    

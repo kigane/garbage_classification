@@ -1,73 +1,55 @@
 import torch
 import wandb
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from dataset import garbage_dataset
+from dataset import get_dataloader
 from model import GarbageModel, evaluate_accuracy
-from utils import read_yaml, save_model
-from visualizer import log_model
+from utils import read_yaml
+from visualizer import Visualizer, log_model
 
+#----------------------------------------------------------------------------
 
-def build_model_path(name: str) -> str:
-    return 'results/models/' + name + '.pth'
+PROJECT_NAME = "GarbageClassification"
 
+#----------------------------------------------------------------------------
 
-def train(config=None) -> None:
+def train(sweep=True) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if config is None:
-        wandb.init()
-    else:
-        wandb.init(project=config.project,
-                   group=config.group,
-                   job_type=config.job_type,
-                   config=config.to_dict())
-    opt = wandb.config
-    # 准备数据集
-    training_set = garbage_dataset('dataset/train')
-    valid_set = garbage_dataset('dataset/valid')
-    train_iter = DataLoader(
-        training_set, batch_size=opt.batch_size, shuffle=True, pin_memory=True)
-    valid_iter = DataLoader(
-        valid_set, batch_size=opt.batch_size, pin_memory=True)
-  
+    visualizer = Visualizer(sweep)
+    opt = visualizer.opt
+    train_iter, valid_iter = get_dataloader(opt)
     model = GarbageModel(opt, device)
 
     best_acc = 0
     for epoch in range(opt.n_epochs):
-        model.reset_metrics()
-        for batch_idx, (X, y) in enumerate(tqdm(train_iter, desc=f'epoch {epoch+1:>3}')):
-            # forward
+        model.reset_metrics_net()
+        for batch_idx, (X, y) in enumerate(tqdm(train_iter, desc=f'epoch {epoch+1:>3}, lr={model.optimizer.param_groups[0]["lr"]}')):
+            # train
             model.set_input((X, y))
-            model.forward()
-            # optimize_params
             model.optimize_parameters()
             # record
             model.accumulate_metrics()
 
         # after train loop
-        wandb.log({'train/loss': model.calc_loss()}, step=epoch+1)
-        wandb.log({'train/acc': model.calc_acc()}, step=epoch+1)
-
         valid_acc = evaluate_accuracy(model.net, valid_iter, device)
-        wandb.log({'valid/acc': valid_acc}, step=epoch+1)
+        visualizer.add_scalars({
+            'train/loss': model.calc_loss(),
+            'train/acc': model.calc_acc(),
+            'valid/acc': valid_acc
+        }, step=epoch+1)
 
         if best_acc < valid_acc:
             best_acc = valid_acc
-            wandb.summary['best_acc'] = best_acc
-            save_model(model, best_acc, build_model_path(opt.model_name))
+            visualizer.add_summary('best_acc', best_acc)
+            model.save(best_acc)
 
-    # after training
-    if config is not None:
-        log_model(opt)
-
+#----------------------------------------------------------------------------
 
 if __name__ == '__main__':
     # single run
-    config = read_yaml('options.yml')
-    train(config)
+    train(sweep=False)
 
     # sweep
-    # sweep_config = read_yaml('sweep.yml', True)
-    # sweep_id = wandb.sweep(sweep_config, project=_PROJECT)
-    # wandb.agent(sweep_id, function=train, count=8)
+    # sweep_config = read_yaml('sweep.yml')
+    # sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
+    # wandb.agent(sweep_id, function=train, count=3)
